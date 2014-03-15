@@ -17,11 +17,11 @@ def downPic(url, folder, suf)
 end
 
 class String
-  def improve
+  def improve!(title, author)
     self.encode!('utf-8')
     self.gsub!(/<.?div.*?>/,'')
-		puts 'here~'
-    self.gsub!(/^第.+章/) { |s| "# "+s }  
+    #self.gsub!(/^第.+章/) { |s| "# "+s }  
+    #self.replace("%"+title+"\n%"+author+"\n\n"+self)
   end
 end
 
@@ -32,32 +32,33 @@ def init
   @agent.auth("straprb","123456123456")
 end
 
-def strap(url, filename)
+def strap(url, filename, author='Anonymous')
   page = @agent.get(url+'?see_lz=1')
   folder = md5(url)+'/'
   Dir.mkdir(folder) unless File.exist?(folder)
   Dir.mkdir(folder+"images/") unless File.exist?(folder+"images/")
 
   buff=''
-  File.open(folder+filename+".md", "w") do |file|
+  File.open(folder+filename+".html", "w") do |file|
     loop do
 		#puts 'here!'
       doc = Nokogiri::HTML(page.body)
-      buff+=doc.xpath("//div[@class='d_post_content j_d_post_content ']").to_s
+#File.open("t.html","w") { |t| t.puts doc }
+      doc = Nokogiri::HTML(doc.to_s.gsub('<!--','').gsub('-->',''))
+      now = doc.xpath('//div[@class="d_post_content j_d_post_content "]').to_html.to_s
+      buff += now
       break if page.links_with(:text => '下一页').length==0
       page=@agent.click page.links_with(:text => '下一页')[0]
     end
-	buff.encode!('utf-8')
 #puts buff
-    ctr = 0
+    buff.encode!('utf-8')
     buff.scan(/<img.*?>/).each do |imgl|
 #puts 'here!'
       imgl =~ /src="(.+?)"/
       url = $1
       puts "Downloading picture " + url
-      link = downPic(folder, url, "images/")
-      buff[imgl] = '![Illustration #' + ctr.to_s + '](../' + link + ')'
-      ++ctr
+      link = downPic(url, folder, "images/")
+      buff[imgl] = '<img src="' + link + '">'
     end
 =begin
     last=-1
@@ -73,7 +74,7 @@ def strap(url, filename)
       buff[imgl.to_s]="[Illustration](../"+newlink+")"
     end
 =end
-    buff.improve
+    buff.improve!(filename, author)
 
     file.puts buff
   end
@@ -81,9 +82,9 @@ def strap(url, filename)
   return folder
 end
 
-url='http://tieba.baidu.com/p/927104385'
-title="恋爱随意链接【第一卷】"
-author="庵田定夏"
+url='http://tieba.baidu.com/p/1338331600'
+title="【第一卷】魔法科高校の劣等生 01 入学编 上"
+author="佐岛勤"
 
 init
-strap(url, title)
+strap(url, title, author)
